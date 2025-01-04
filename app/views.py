@@ -1,48 +1,13 @@
-from django.shortcuts import render, HttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import UserProfile, TextMessage, OTP, User
 from django.contrib.auth import authenticate
-import random
-from datetime import datetime
-from django.core.mail import send_mail
-from django.conf import settings
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-import json
 from .serializers import UserProfileSerializer
-
-def generate_otp():
-    otp = str(random.randint(100000, 999999))
-    return otp
-
-def send_otp(email):
-    otp = generate_otp()
-    try:
-        response = send_mail(
-                    'OTP',
-                    f'Enter OTP {otp} to verify your email.',
-                    settings.EMAIL_HOST_USER,
-                    [email],
-                    fail_silently=False,
-                    )
-        response = bool(response)
-    except:
-        response = False
-    
-    if response:
-        otp_obj = OTP.objects.filter(email=email)
-        if otp_obj.exists():
-            otp_obj = otp_obj.last()
-            otp_obj.otp = otp
-            otp_obj.created_at = datetime.now()
-            otp_obj.save()
-        else:
-            OTP.objects.create(email=email, otp=otp)
-    return response
-
-
+from .utility import send_otp
+import json, traceback
 
 class RegisterUserView(APIView):
     permission_classes = [AllowAny]
@@ -56,15 +21,13 @@ class RegisterUserView(APIView):
             accont_type = request_data.get('accont_type','').strip()
             if not all([email,password]):
                 raise ValueError('Email & Password required feilds.')
-            
             if accont_type not in accont_types:
                 raise ValueError(f'accont_type required field , It should be `{'/'.join(accont_types)}` only.')
-
             user_obj = User.objects.filter(email=email,username=email) 
             if user_obj.filter(is_active=True,is_verified=True).exists():
-                return Response({'message': 'Email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'Email already exists.','status':400}, status=status.HTTP_400_BAD_REQUEST)
             elif user_obj.filter(is_active=False,is_verified=False).exists():
-                pass
+                user = user_obj.last()
             else:
                 # misc data
                 request_data.pop("password")
@@ -84,11 +47,11 @@ class RegisterUserView(APIView):
             otp_sent = send_otp(email)
             if not otp_sent:
                 user.delete()
-                return Response({'message':'OTP not sent'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message':'OTP not sent','status':400}, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({'message': f'OTP sent on email `{email}`, please verify.'}, status=status.HTTP_201_CREATED)
+            return Response({'message': f'OTP sent on email `{email}`, please verify.','status':201}, status=status.HTTP_201_CREATED)
         except Exception as E:
-            return Response({'message': f'{E}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class OTPVerificationView(APIView):
@@ -102,9 +65,9 @@ class OTPVerificationView(APIView):
 
             otp_record = OTP.objects.filter(email=email,otp=otp)
             if not otp_record.exists():
-                return Response({'message': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'Invalid OTP','status':400}, status=status.HTTP_400_BAD_REQUEST)
             if otp_record.last().is_expired():
-                return Response({'message': 'OTP has expired.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message': 'OTP has expired.','status':400}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
                 user = User.objects.get(email=email)
@@ -118,10 +81,10 @@ class OTPVerificationView(APIView):
             refresh = RefreshToken.for_user(user)
             return Response({
                 'token': str(refresh.access_token),
-                'message': 'OTP verified successfully.'})
+                'message': 'OTP verified successfully.','status':200}, status=status.HTTP_200_OK)
 
         except Exception as E:
-            return Response({'message': f'{E}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'{E}','status':400}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class SignInView(APIView):
@@ -133,11 +96,11 @@ class SignInView(APIView):
                 raise ValueError('Email required feild.')
             otp_sent = send_otp(email)
             if not otp_sent:
-                return Response({'message':'OTP not sent'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'message':'OTP not sent','status':400}, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({'message': f'OTP sent on email `{email}`, please verify.'}, status=status.HTTP_201_CREATED)
+            return Response({'message': f'OTP sent on email `{email}`, please verify.','status':201}, status=status.HTTP_201_CREATED)
         except Exception as E:
-            return Response({'message': f'{E}'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'message': f'{E}','status':200}, status=status.HTTP_400_BAD_REQUEST)
 
 class LogInView(APIView):
     permission_classes = [AllowAny]
@@ -150,18 +113,18 @@ class LogInView(APIView):
                 raise ValueError('Email & Password required feilds.')
             user = authenticate(username=email, password=password)
             if not user:
-                return Response({'message': 'Invalid credentials'},
+                return Response({'message': 'Invalid credentials','status':401},
                                 status=status.HTTP_401_UNAUTHORIZED)
                 
             if not all([user.is_verified, user.is_active]):
-                    return Response({'message': 'Email not verified!'},
+                    return Response({'message': 'Email not verified!','status':403},
                         status=status.HTTP_403_FORBIDDEN)
 
             refresh = RefreshToken.for_user(user)
             
             return Response({
                 'token': str(refresh.access_token),
-                'message': 'Login successfully.'
+                'message': 'Login successfully.','status':200
             })
             
         except Exception as E:
@@ -176,33 +139,19 @@ class UserProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def put(self, request):
-        # user_profile = request.user.userprofile
-        # serializer = UserProfileSerializer(user_profile, data=request.data)
+        try:
+            user_profile = request.user.userprofile
 
-        # if serializer.is_valid():
-        #     serializer.save()
-        #     return Response(serializer.data, status=status.HTTP_200_OK)
-        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        if 'photo' in request.FILES:
-            print('>>>>>  request.data ', request.data)
-            print('>>>>>  request.FILES ', request.FILES)
-            file_obj = request.FILES['photo']
-            request.data["photo"] = file_obj
-        serializer = UserProfileSerializer(data=request.data)
-        if serializer.is_valid():
-            file_instance = serializer.save()
-            file_instance.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-    def patch(self, request):
-        user_profile = request.user.userprofile
-        serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            if 'photo' in request.data:
+                user_profile.photo = request.data['photo']
+            if 'gender' in request.data:
+                user_profile.gender = request.data['gender']
+            if 'dob' in request.data:
+                user_profile.dob = request.data['dob']
+            
+            user_profile.save()
+            
+            return Response({'message': 'Profile updated successfully.','status':200}, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
