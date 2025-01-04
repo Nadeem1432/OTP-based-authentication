@@ -10,6 +10,8 @@ from django.core.mail import send_mail
 from django.conf import settings
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+import json
+from .serializers import UserProfileSerializer
 
 def generate_otp():
     otp = str(random.randint(100000, 999999))
@@ -45,25 +47,39 @@ def send_otp(email):
 class RegisterUserView(APIView):
     permission_classes = [AllowAny]
     def post(self, request):
+        accont_types = ('email','gmail')
         try:
-            name = request.data.get('name','').strip()
-            email = request.data.get('email','').strip()
-            password = request.data.get('password','').strip()
-
+            request_data = request.data if isinstance(request.data,dict) else json.loads(request.data)
+            name = request_data.get('name','').strip()
+            email = request_data.get('email','').strip()
+            password = request_data.get('password','').strip()
+            accont_type = request_data.get('accont_type','').strip()
             if not all([email,password]):
                 raise ValueError('Email & Password required feilds.')
+            
+            if accont_type not in accont_types:
+                raise ValueError(f'accont_type required field , It should be `{'/'.join(accont_types)}` only.')
+
             user_obj = User.objects.filter(email=email,username=email) 
             if user_obj.filter(is_active=True,is_verified=True).exists():
                 return Response({'message': 'Email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
             elif user_obj.filter(is_active=False,is_verified=False).exists():
                 pass
             else:
+                # misc data
+                request_data.pop("password")
+                request_data.pop("email")
+                request_data.pop("name")
+                misc = request_data
+
                 user = User.objects.create_user(name=name,
                                                 email=email,
                                                 username=email,
                                                 password=password,
                                                 is_active=False,
-                                                is_verified=False)
+                                                is_verified=False,
+                                                misc=misc)
+                UserProfile.objects.create(user=user)
                 
             otp_sent = send_otp(email)
             if not otp_sent:
@@ -150,3 +166,43 @@ class LogInView(APIView):
             
         except Exception as E:
             return Response({'message': f'{E}'}, status=status.HTTP_400_BAD_REQUEST)
+
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_profile = request.user.userprofile
+        serializer = UserProfileSerializer(user_profile)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def put(self, request):
+        # user_profile = request.user.userprofile
+        # serializer = UserProfileSerializer(user_profile, data=request.data)
+
+        # if serializer.is_valid():
+        #     serializer.save()
+        #     return Response(serializer.data, status=status.HTTP_200_OK)
+        # return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if 'photo' in request.FILES:
+            print('>>>>>  request.data ', request.data)
+            print('>>>>>  request.FILES ', request.FILES)
+            file_obj = request.FILES['photo']
+            request.data["photo"] = file_obj
+        serializer = UserProfileSerializer(data=request.data)
+        if serializer.is_valid():
+            file_instance = serializer.save()
+            file_instance.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+    def patch(self, request):
+        user_profile = request.user.userprofile
+        serializer = UserProfileSerializer(user_profile, data=request.data, partial=True)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -5,5 +5,6 @@ urlpatterns = [
     path('sign-in/', SignInView.as_view()),
     path('log-in/', LogInView.as_view()),
     path('otp_verify/', OTPVerificationView.as_view()),
+    path('profile/', UserProfileView.as_view()),
 ]
 
