@@ -17,3 +17,13 @@ class TextMessageAdmin(admin.ModelAdmin):
 @admin.register(OTP)
 class OTPAdmin(admin.ModelAdmin)    :
     list_display = ['email','created_at','otp']
+
+@admin.register(TextMessageHistory)
+class TextMessageHistoryAdmin(admin.ModelAdmin):
+    list_display = ['text_message','text','timestamp','created_by']
+
+@admin.register(Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'message', 'timestamp', 'is_read')
+    list_filter = ('user', 'is_read')  
+    search_fields = ('message',)

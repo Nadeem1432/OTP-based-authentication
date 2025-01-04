@@ -6,5 +6,11 @@ urlpatterns = [
     path('log-in/', LogInView.as_view()),
     path('otp_verify/', OTPVerificationView.as_view()),
     path('profile/', UserProfileView.as_view()),
+    path('profile/update/', UserProfileView.as_view()),
+    path('text/create/', TextMessageView.as_view()),
+    path('text/list/', TextMessageView.as_view()),
+    path('push-notification/', PushNotificationView.as_view()),
+    path('notifications/', GetNotificationsView.as_view()),
+
 ]
 

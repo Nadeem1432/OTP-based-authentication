@@ -36,3 +36,23 @@ class OTP(models.Model):
     def __str__(self):
         return str(self.email)
     
+class TextMessageHistory(models.Model):
+    text_message = models.ForeignKey(TextMessage, on_delete=models.DO_NOTHING)
+    text = models.TextField()
+    created_by = models.ForeignKey(User, related_name='created_histories', on_delete=models.CASCADE)
+    updated_by = models.ForeignKey(User, related_name='updated_histories', on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return f"History of {self.text_message.user.email} at {self.timestamp}"
+    
+class Notification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f'Notification for {self.user.username}: {self.message}'

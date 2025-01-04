@@ -1,11 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import UserProfile, TextMessage, OTP, User
+from .models import UserProfile, TextMessage, OTP, User, TextMessageHistory, Notification
 from django.contrib.auth import authenticate
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import UserProfileSerializer
+from .serializers import *
 from .utility import send_otp
 import json, traceback
 
@@ -155,3 +155,64 @@ class UserProfileView(APIView):
         
         except Exception as e:
             return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
+        
+class TextMessageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            text_messages = TextMessage.objects.filter(user=request.user)
+            serializer = TextMessageSerializer(text_messages, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
+                                   
+    def post(self, request):
+        try:
+            text = request.data.get('text', '').strip()
+            if not text:
+                return Response({'message': '`text` required field!','status':400}, status=status.HTTP_400_BAD_REQUEST)
+
+            text_message = TextMessage.objects.create(user=request.user, text=text)
+            TextMessageHistory.objects.create(
+                text_message=text_message,
+                text=text,
+                created_by=request.user,
+                updated_by=request.user)
+
+            return Response({'message': 'Text message created successfully.','status':200}, status=status.HTTP_201_CREATED)
+        
+        except Exception as e:
+            return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
+
+class PushNotificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        if not any([request.user.is_superuser,request.user.is_staff]):
+            return Response({'message': 'You do not have permission to perform this action.'
+                             ,'status':403}, status=status.HTTP_403_FORBIDDEN)
+        email = request.data.get('email','').strip()
+        message = request.data.get('message','').strip()
+
+        if not all([email,message]):
+            raise ValueError('Email & Message required feilds.')
+
+        try:
+            user = User.objects.get(username=email,email=email,is_verified=True)
+
+            # Create the notification
+            notification = Notification.objects.create(user=user, message=message)
+            return Response({'message': 'Notification pushed successfully.', 'status':201}, status=status.HTTP_201_CREATED)
+
+        except User.DoesNotExist:
+            return Response({'message': 'User not found.','status':404}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
+
+class GetNotificationsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        user = request.user
+        notifications = Notification.objects.filter(user=user)
+        serializer = NotificationSerializer(notifications, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
