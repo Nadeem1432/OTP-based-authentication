@@ -8,7 +8,7 @@ from django.utils import timezone
 class User(AbstractUser):
     is_verified = models.BooleanField(default=False)
     name = models.CharField(max_length=255, null=True, blank=True)
-    misc = models.JSONField()
+    misc = models.JSONField(default = dict)
     def __str__(self):
         return str(self.id)+"-"+str(self.email)
 
