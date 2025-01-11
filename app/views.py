@@ -28,7 +28,7 @@ class RegisterUserView(APIView):
             if account_type == 'gmail':
                 if user_obj.filter(is_active=True,is_verified=True).exists():
                     user = user_obj.last()
-                elif user_obj.filter(is_active=False,is_verified=False).exists():
+                elif user_obj.filter(is_active=True,is_verified=False).exists():
                     user = user_obj.last()
                     user.is_active =True
                     user.is_verified =True
@@ -56,7 +56,7 @@ class RegisterUserView(APIView):
 
             if user_obj.filter(is_active=True,is_verified=True).exists():
                 return Response({'message': 'Email already exists.','status':400}, status=status.HTTP_400_BAD_REQUEST)
-            elif user_obj.filter(is_active=False,is_verified=False).exists():
+            elif user_obj.filter(is_active=True,is_verified=False).exists():
                 user = user_obj.last()
             else:
                 # misc data
