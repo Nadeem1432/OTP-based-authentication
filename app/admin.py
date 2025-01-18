@@ -5,6 +5,7 @@ from .models import *
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
     list_display = ['email','is_verified']
+    search_fields = ['email']
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):

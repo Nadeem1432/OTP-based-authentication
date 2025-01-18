@@ -177,7 +177,14 @@ class UserProfileView(APIView):
                 user_profile.gender = request.data['gender']
             if 'dob' in request.data:
                 user_profile.dob = request.data['dob']
-            
+
+            if request.data.get('password'):
+                request.user.set_password(request.data.get('password'))
+
+            if request.data.get('name'):
+                request.user.name = request.data.get('name')
+                
+            request.user.save()
             user_profile.save()
             
             return Response({'message': 'Profile updated successfully.','status':200}, status=status.HTTP_200_OK)
