@@ -104,9 +104,11 @@ class OTPVerificationView(APIView):
             except User.DoesNotExist:
                 user = User.objects.create(email=email,username=email)
 
-            user.is_active = True
-            user.is_verified = True
-            user.save()
+            if not request.data.get("is_resetpassword") in ('true','True','TRUE',True):
+                user.is_active = True
+                user.is_verified = True
+                user.save()
+                
             otp_record.delete()
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -252,3 +254,20 @@ class GetNotificationsView(APIView):
         notifications = Notification.objects.filter(user=user)
         serializer = NotificationSerializer(notifications, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+class ForgotPasswordView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        try:
+            request_data = request.data if isinstance(request.data,dict) else json.loads(request.data)
+            email = request_data.get('email','').strip()
+            if not email:
+                raise ValueError('Email required feild.')
+            user_obj = User.objects.filter(email=email,username=email)
+            if not user_obj.exists():
+                return Response({'message': 'Invalid Email !!!','status':400}, status=status.HTTP_400_BAD_REQUEST)                
+
+            otp_sent = send_otp(email)            
+            return Response({'message': f'OTP sent on email `{email}`, please verify.','status':201}, status=status.HTTP_201_CREATED)
+        except Exception as E:
+            return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)

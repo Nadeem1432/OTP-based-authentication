@@ -11,6 +11,7 @@ urlpatterns = [
     path('text/list', TextMessageView.as_view()),
     path('push-notification', PushNotificationView.as_view()),
     path('notifications', GetNotificationsView.as_view()),
+    path('forgotpassword', ForgotPasswordView.as_view()),
 
 ]
 
