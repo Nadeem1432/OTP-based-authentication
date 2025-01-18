@@ -108,7 +108,7 @@ class OTPVerificationView(APIView):
                 user.is_active = True
                 user.is_verified = True
                 user.save()
-                
+
             otp_record.delete()
             refresh = RefreshToken.for_user(user)
             return Response({
@@ -244,6 +244,17 @@ class PushNotificationView(APIView):
 
         except User.DoesNotExist:
             return Response({'message': 'User not found.','status':404}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def put(self, request):
+        try:
+            n_id = request.data.get("id")
+            notification_obj = Notification.objects.filter(id=n_id)
+            if not notification_obj.exists():
+                return Response({'message': 'Invalid Notification Id.','status':404}, status=status.HTTP_404_NOT_FOUND)
+            notification_obj.update(is_read=True)
+            return Response({'message': 'Notification marked as read successfully.','status':200}, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({'message': str(e),'status':400}, status=status.HTTP_400_BAD_REQUEST)
 
