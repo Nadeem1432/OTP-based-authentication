@@ -282,3 +282,25 @@ class ForgotPasswordView(APIView):
             return Response({'message': f'OTP sent on email `{email}`, please verify.','status':201}, status=status.HTTP_201_CREATED)
         except Exception as E:
             return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)
+
+class FCMNotificationView(APIView):
+    permission_classes = [AllowAny]
+    def post(self, request):
+        from pyfcm import FCMNotification
+        try:
+            FIREBASE_SERVER_KEY = 'BG1bCb5ipf4xSJ9WzY-sXxgVJ_nxOCjGIiIOkHhq8GgaNzQ6JVP5lpZDDZpM3WqJTiLVu6iWYKKGIdtJU4niv68'
+            request_data = request.data if isinstance(request.data,dict) else json.loads(request.data)
+            device_tokens = request_data.get('device_tokens_list',[])
+            title = request_data.get('title','')
+            message = request_data.get('message','')
+            if not device_tokens:
+                raise ValueError('Device Tokens required feild.')
+
+            push_service = FCMNotification(api_key=FIREBASE_SERVER_KEY) 
+            result = push_service.notify_multiple_devices(registration_ids=device_tokens, 
+                                                        message_title=title, 
+                                                        message_body=message) 
+            
+            return Response({'message': f'Notified successfully.','status':201}, status=status.HTTP_200_OK)
+        except Exception as E:
+            return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)
