@@ -22,7 +22,7 @@ class RegisterUserView(APIView):
             if not all([email,password]):
                 raise ValueError('Email & Password required feilds.')
             if account_type not in account_types:
-                raise ValueError(f'account_type required field , It should be `{'/'.join(account_types)}` only.')
+                raise ValueError(f'account_type required field , It should be `{"/".join(account_types)}` only.')
             user_obj = User.objects.filter(email=email,username=email)
 
             if account_type == 'gmail':
@@ -144,7 +144,7 @@ class LogInView(APIView):
             if not all([email,password]):
                 raise ValueError('Email & Password required feilds.')
             user = authenticate(username=email, password=password)
-            if not user:
+            if not user or not user.is_active:
                 return Response({'message': 'Invalid credentials','status':401},
                                 status=status.HTTP_401_UNAUTHORIZED)
                 
@@ -302,5 +302,19 @@ class FCMNotificationView(APIView):
                                                         message_body=message) 
             
             return Response({'message': f'Notified successfully.','status':201}, status=status.HTTP_200_OK)
+        except Exception as E:
+            return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class DeactivateAccount(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        try:
+            request.user.is_active = False
+            request.user.is_verified = False
+            request.user.save()
+            
+            return Response({'message': f'User Deactivated successfully.','status':200}, status=status.HTTP_200_OK)
         except Exception as E:
             return Response({'message': f'{traceback.format_exc()}','status':400}, status=status.HTTP_400_BAD_REQUEST)

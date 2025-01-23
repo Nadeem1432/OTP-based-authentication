@@ -14,6 +14,7 @@ urlpatterns = [
     path('mark-as-read', PushNotificationView.as_view()),
     path('forgotpassword', ForgotPasswordView.as_view()),
     path('push-notification-fcm', FCMNotificationView.as_view()),
+    path('deactivate-account', DeactivateAccount.as_view()),
 
 ]
 

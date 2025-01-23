@@ -147,8 +147,8 @@ REST_FRAMEWORK = {
 AUTH_USER_MODEL = 'app.User'
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=180),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=180),
     'ROTATE_REFRESH_TOKENS': False,
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
